@@ -1,0 +1,48 @@
+PSPSDK=$(shell psp-config --pspsdk-path)
+
+PSPAPP=PSP
+PSPLIB=$(PSPAPP)/psplib
+MZLIB=$(PSPAPP)/minizip
+PSP_FW_VERSION=200
+export PSP_FW_VERSION
+
+PSP_APP_NAME=Potator PSP
+PSP_APP_VER=0.60.1
+
+TARGET=potator
+EXTRA_TARGETS=EBOOT.PBP
+PSP_EBOOT_TITLE=$(PSP_APP_NAME) $(PSP_APP_VER)
+PSP_EBOOT_ICON=$(PSPAPP)/potator-icon.png
+
+BUILD_EMUL=common/M6502/M6502.o common/gpu.o common/interrupts.o common/io.o \
+           common/log.o common/memory.o common/memorymap.o common/timer.o \
+           common/version.o common/watara.o
+BUILD_PORT=$(PSPAPP)/emulate.o $(PSPAPP)/controls.o $(PSPAPP)/sound.o \
+           $(PSPAPP)/main.o $(PSPAPP)/menu.o
+
+OBJS=$(BUILD_EMUL) $(BUILD_PORT)
+
+DEFINES=-DWORD=unsigned\ short -DBYTE=unsigned\ char -D__int64=long \
+        -DSOUND_BUFFER_SIZE=368
+BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAME)\""
+CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
+CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
+ASFLAGS=$(CFLAGS)
+INCDIR=$(PSPLIB) $(MZLIB) $(PSPAPP) common/M6502 common
+LIBDIR=$(PSPLIB) $(MZLIB)
+LIBS=-lpsplib -lpng -lpspgu -lpsppower -lminizip \
+     -lz -lm -lc -lpspaudio -lpsprtc -lpspwlan -lpspnet_adhoc \
+     -lpspnet_adhocctl -lpspnet_adhocmatching
+
+all: build_libs
+clean: clean_libs
+
+include $(PSPSDK)/lib/build.mak
+
+build_libs:
+	cd $(PSPLIB) ; $(MAKE)
+	cd $(MZLIB) ; $(MAKE)
+clean_libs:
+	cd $(PSPLIB) ; $(MAKE) clean
+	cd $(MZLIB) ; $(MAKE) clean
+
