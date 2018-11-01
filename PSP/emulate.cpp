@@ -12,13 +12,12 @@
 #include "pl_perf.h"
 
 #include "supervision.h"
-#include "controls.h"
 
 #include "emulate.h"
 
 PspImage *Screen;
 
-extern uint8 controls_state;
+uint8 controls_state;
 
 extern EmulatorOptions Options;
 extern const u64 ButtonMask[];
@@ -27,7 +26,7 @@ extern struct ButtonConfig ActiveConfig;
 
 static int ScreenX, ScreenY, ScreenW, ScreenH;
 static int ClearScreen;
-static int TicksPerUpdate;
+static u32 TicksPerUpdate;
 static u32 TicksPerSecond;
 static u64 LastTick;
 static u64 CurrentTick;
@@ -109,7 +108,7 @@ void RunEmulator()
     /* Check input */
     if (ParseInput()) break;
 
-    supervision_exec((int16*)Screen->Pixels, 1, Screen->Width);
+    supervision_exec_ex((uint16*)Screen->Pixels, Screen->Width);
 
     /* Run the system emulation for a frame */
     if (++Frame > Options.Frameskip)
@@ -158,7 +157,7 @@ static int ParseInput()
 
       if (code & AFI)
       {
-        if (on && (autofire_status == 0)) 
+        if (on && (autofire_status == 0))
           controls_state |= CODE_MASK(code);
       }
       else if (code & JOY)
@@ -176,7 +175,7 @@ static int ParseInput()
       }
     }
   }
-
+  supervision_set_input(controls_state);
   return 0;
 }
 
@@ -234,7 +233,14 @@ static void psp_audio_callback(pl_snd_sample* buf,
 {
   int length = samples << 1; /* 2 bits per sample */
 
-  /* Render silence for now */
-  memset(buf, 0, length);
+  static u8 bufU8[SOUND_BUFFER_SIZE * 4];
+
+  supervision_update_sound(bufU8, length);
+  u8* b = bufU8;
+  int i;
+  for (i = 0; i < (int)samples; i++) {
+    buf[i].stereo.l = *(b++) << 8;
+    buf[i].stereo.r = *(b++) << 8;
+  }
 }
 

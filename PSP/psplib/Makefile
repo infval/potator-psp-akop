@@ -41,7 +41,8 @@ libpsplib.a: \
 	@echo Compiled for firmware $(PSP_FW_VERSION)
 
 clean:
-	$(RM) *.o genfont stockfont.h *.a
+	$(RM) *.o genfont *.a
+# stockfont.h
 
 font.o: font.c font.h stockfont.h
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
@@ -95,8 +96,8 @@ pl_gfx.o: pl_gfx.c pl_gfx.h
 pl_rewind.o: pl_rewind.c pl_rewind.h
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 
-stockfont.h: stockfont.fd genfont
-	./genfont < $< > $@
+#stockfont.h: stockfont.fd genfont
+#	./genfont < $< > $@
 
-genfont: genfont.c
-	cc $< -o $@
+#genfont: genfont.c
+#	cc $< -o $@

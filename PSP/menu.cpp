@@ -57,7 +57,7 @@ extern PspImage *Screen;
 
 EmulatorOptions Options;
 
-static void *rom_buffer;
+static uint8 *rom_buffer;
 static int TabIndex;
 static int ResumeEmulation;
 static PspImage *Background;
@@ -129,14 +129,14 @@ PL_MENU_OPTIONS_BEGIN(FrameLimitOptions)
   PL_MENU_OPTION("Disabled",      0)
   PL_MENU_OPTION("60 fps (NTSC)", 60)
 PL_MENU_OPTIONS_END
-PL_MENU_OPTIONS_BEGIN(FrameSkipOptions)
-  PL_MENU_OPTION("No skipping",   0)
-  PL_MENU_OPTION("Skip 1 frame",  1)
-  PL_MENU_OPTION("Skip 2 frames", 2)
-  PL_MENU_OPTION("Skip 3 frames", 3)
-  PL_MENU_OPTION("Skip 4 frames", 4)
-  PL_MENU_OPTION("Skip 5 frames", 5)
-PL_MENU_OPTIONS_END
+// PL_MENU_OPTIONS_BEGIN(FrameSkipOptions)
+//   PL_MENU_OPTION("No skipping",   0)
+//   PL_MENU_OPTION("Skip 1 frame",  1)
+//   PL_MENU_OPTION("Skip 2 frames", 2)
+//   PL_MENU_OPTION("Skip 3 frames", 3)
+//   PL_MENU_OPTION("Skip 4 frames", 4)
+//   PL_MENU_OPTION("Skip 5 frames", 5)
+// PL_MENU_OPTIONS_END
 PL_MENU_OPTIONS_BEGIN(PspClockFreqOptions)
   PL_MENU_OPTION("222 MHz", 222)
   PL_MENU_OPTION("266 MHz", 266)
@@ -154,9 +154,12 @@ PL_MENU_OPTIONS_BEGIN(ControlModeOptions)
   PL_MENU_OPTION("\026\241\020 cancels, \026\242\020 confirms (Japan)", 1)
 PL_MENU_OPTIONS_END
 PL_MENU_OPTIONS_BEGIN(ColorSchemeOptions)
-  PL_MENU_OPTION("Default", COLOUR_SCHEME_DEFAULT)
-  PL_MENU_OPTION("Amber",   COLOUR_SCHEME_AMBER)
-  PL_MENU_OPTION("Green",   COLOUR_SCHEME_GREEN)
+  PL_MENU_OPTION("Default",       SV_COLOR_SCHEME_DEFAULT)
+  PL_MENU_OPTION("Amber",         SV_COLOR_SCHEME_AMBER)
+  PL_MENU_OPTION("Green",         SV_COLOR_SCHEME_GREEN)
+  PL_MENU_OPTION("Blue",          SV_COLOR_SCHEME_BLUE)
+  PL_MENU_OPTION("BGB (GameBoy)", SV_COLOR_SCHEME_BGB)
+  PL_MENU_OPTION("TV link (?)",   SV_COLOR_SCHEME_YOUTUBE)
 PL_MENU_OPTIONS_END
 PL_MENU_OPTIONS_BEGIN(ButtonMapOptions)
   /* Unmapped */
@@ -187,8 +190,8 @@ PL_MENU_ITEMS_BEGIN(OptionMenuDef)
   PL_MENU_HEADER("Performance")
   PL_MENU_ITEM("Frame limiter", OPTION_SYNC_FREQ, FrameLimitOptions,
                "\026\250\020 Change screen update frequency")
-  PL_MENU_ITEM("Frame skipping", OPTION_FRAMESKIP, FrameSkipOptions,
-               "\026\250\020 Change number of frames skipped per update")
+//  PL_MENU_ITEM("Frame skipping", OPTION_FRAMESKIP, FrameSkipOptions,
+//               "\026\250\020 Change number of frames skipped per update")
   PL_MENU_ITEM("VSync", OPTION_VSYNC, ToggleOptions,
                "\026\250\020 Enable to reduce tearing; disable to increase speed")
   PL_MENU_ITEM("PSP clock frequency", OPTION_CLOCK_FREQ, PspClockFreqOptions,
@@ -371,6 +374,8 @@ int InitMenu()
   rom_buffer = NULL;
 
   /* Initialize paths */
+  sprintf(SaveStatePath, "%sstates", pl_psp_get_app_directory());
+  sceIoMkdir(SaveStatePath, 0777);
   sprintf(SaveStatePath, "%sstates/", pl_psp_get_app_directory());
   sprintf(ScreenshotPath, "ms0:/PSP/PHOTO/%s/", PSP_APP_NAME);
   sprintf(GamePath, "%s", pl_psp_get_app_directory());
@@ -486,8 +491,8 @@ void DisplayMenu()
         pl_menu_select_option_by_value(item, (void*)Options.DisplayMode);
         item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_SYNC_FREQ);
         pl_menu_select_option_by_value(item, (void*)Options.UpdateFreq);
-        item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_FRAMESKIP);
-        pl_menu_select_option_by_value(item, (void*)(int)Options.Frameskip);
+//        item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_FRAMESKIP);
+//        pl_menu_select_option_by_value(item, (void*)(int)Options.Frameskip);
         item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_VSYNC);
         pl_menu_select_option_by_value(item, (void*)Options.VSync);
         item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_CLOCK_FREQ);
@@ -518,7 +523,7 @@ void DisplayMenu()
       /* Resume emulation */
       if (ResumeEmulation)
       {
-        supervision_set_colour_scheme(Options.ColorScheme);
+        supervision_set_color_scheme(Options.ColorScheme);
 
         if (UiMetric.Animate) pspUiFadeout();
         RunEmulator();
@@ -604,7 +609,7 @@ static int psp_load_rom(const char *path)
             rom_buffer = NULL;
           }
 
-          if (!(rom_buffer = malloc(file_size)))
+          if (!(rom_buffer = (uint8*)malloc(file_size)))
           {
             unzCloseCurrentFile(zipfile);
             unzClose(zipfile); 
@@ -659,8 +664,7 @@ static int psp_load_rom(const char *path)
   }
 
 done:
-	memorymap_load((unsigned char*)rom_buffer, file_size);
-	supervision_reset();
+	supervision_load(rom_buffer, file_size);
   SET_AS_CURRENT_GAME(path);
 
 	return 1;
@@ -721,7 +725,7 @@ static void LoadOptions()
   Options.AutoFire = pl_ini_get_int(&init, "Input", "Autofire", 2);
   pl_ini_get_string(&init, "File", "Game Path", NULL, GamePath, sizeof(GamePath));
 
-  Options.ColorScheme = pl_ini_get_int(&init, "System", "Color Scheme", COLOUR_SCHEME_DEFAULT);
+  Options.ColorScheme = pl_ini_get_int(&init, "System", "Color Scheme", SV_COLOR_SCHEME_DEFAULT);
 
   /* Clean up */
   pl_ini_destroy(&init);
@@ -854,9 +858,9 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
     case OPTION_SYNC_FREQ:
       Options.UpdateFreq = (int)option->value;
       break;
-    case OPTION_FRAMESKIP:
-      Options.Frameskip = (int)option->value;
-      break;
+//    case OPTION_FRAMESKIP:
+//      Options.Frameskip = (int)option->value;
+//      break;
     case OPTION_VSYNC:
       Options.VSync = (int)option->value;
       break;
@@ -1132,7 +1136,8 @@ static int LoadState(const char *path)
   PspImage *image = pspImageLoadPngFd(f);
   pspImageDestroy(image);
 
-  int status = 0; /* TODO sv_loadStateFp(f); */
+  int status = 0;
+  status = supervision_load_state(path, 0);
   fclose(f);
 
   return status;
@@ -1161,7 +1166,7 @@ static PspImage* SaveState(const char *path, PspImage *icon)
   }
 
   /* Save state */
-  if (!0) /* TODO sv_saveStateFp(f)) */
+  if (!supervision_save_state(path, 0))
   {
     pspImageDestroy(thumb);
     thumb = NULL;
