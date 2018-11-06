@@ -38,6 +38,8 @@ void supervision_init(void)
     gpu_init();
     memorymap_init();
     // 256 * 256 -- 1 frame (61 FPS)
+    // 256 - 4MHz,
+    // 512 - 8MHz, ...
     m6502_registers.IPeriod = 256;
 }
 
@@ -77,7 +79,7 @@ void supervision_exec_ex(uint16 *backbuffer, int16 backbufferWidth)
 {
     uint32 i, scan;
     uint8 *regs = memorymap_getRegisters();
-    uint8 startx, endx;
+    uint8 innerx, size;
 
     // Number of iterations = 256 * 256 / m6502_registers.IPeriod
     for (i = 0; i < 256; i++) {
@@ -85,18 +87,17 @@ void supervision_exec_ex(uint16 *backbuffer, int16 backbufferWidth)
         timer_exec(m6502_registers.IPeriod);
     }
 
-    //if (!((regs[SV_BANK] >> 3) & 1)) { printf("LCD off\n"); }
-    scan   = regs[SV_XPOS] / 4 + regs[SV_YPOS] * 0x30;
-    startx = regs[SV_XPOS] & 3;      //3 - (regs[SV_XPOS] & 3);
-    endx = (regs[SV_XSIZE] | 3) - 3; //min(163, (regs[SV_XSIZE] | 3));
-    if (endx > SV_W) endx = SV_W;
+    //if (!(regs[BANK] & 0x8)) { printf("LCD off\n"); }
+    scan   = regs[XPOS] / 4 + regs[YPOS] * 0x30;
+    innerx = regs[XPOS] & 3;
+    size   = regs[XSIZE]; // regs[XSIZE] <= SV_W
 
     for (i = 0; i < SV_H; i++) {
-        gpu_render_scanline(scan, backbuffer, startx, endx);
+        if (scan >= 0x1fe0)
+            scan -= 0x1fe0; // SSSnake
+        gpu_render_scanline(scan, backbuffer, innerx, size);
         backbuffer += backbufferWidth;
         scan += 0x30;
-        if (scan >= 0x1fe0)
-            scan = 0; // SSSnake
     }
 
     if (Rd6502(0x2026) & 0x01)

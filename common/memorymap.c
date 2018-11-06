@@ -22,8 +22,8 @@ static BOOL timer_shot   = FALSE;
 
 static void check_irq(void)
 {
-    BOOL irq = (timer_shot && ((regs[SV_BANK] >> 1) & 1))
-          || (dma_finished && ((regs[SV_BANK] >> 2) & 1));
+    BOOL irq = (timer_shot && ((regs[BANK] >> 1) & 1))
+          || (dma_finished && ((regs[BANK] >> 2) & 1));
 
     void m6502_set_irq_line(BOOL); // watara.c
     m6502_set_irq_line(irq);
@@ -60,6 +60,7 @@ void memorymap_reset(void)
     //  96KB ->  80KB
     // 112KB ->  96KB
     // 128KB -> 112KB (max in theory)
+    // 512KB -- 'Journey to the West' isn't supported
     upperRomBank = programRom + (programRomSize - 0x4000);
 
     memset(lowerRam, 0x00, 0x2000);
@@ -81,15 +82,11 @@ uint8 memorymap_registers_read(uint32 Addr)
 {
     uint8 data = regs[Addr & 0x1fff];
     switch (Addr & 0x1fff) {
-        case 0x00:
-        case 0x01:
-        case 0x02:
-        case 0x03:
-            break;
         case 0x20:
             return controls_read();
         case 0x21:
-            data &= ~0xf;
+            //data &= ~0xf;
+            // Not used. Pass Link Port Probe (WaTest.bin from Wataroo)
             data |= regs[0x22] & 0xf;
             break;
         case 0x24:
@@ -113,15 +110,66 @@ uint8 memorymap_registers_read(uint32 Addr)
     return data;
 }
 
+// General Purpose DMA
+// Pass only the first test (WaTest.bin from Wataroo)
+//typedef struct {
+//    uint16 caddr;
+//    uint16 vaddr;
+//    BOOL cpu2vram;
+//    uint16 length;
+//} GENERIC_DMA;
+//static GENERIC_DMA dma;
+//
+//static void dma_write(uint32 Addr, uint8 Value)
+//{
+//    switch (Addr & 0x1fff) {
+//        case 0x08:
+//            dma.caddr = Value;
+//            printf("CBUS LO (%x)\n", Value);
+//            break;
+//        case 0x09:
+//            dma.caddr |= (Value << 8);
+//            printf("CBUS HI %x (%x)\n", dma.caddr, Value);
+//            break;
+//        case 0x0a:
+//            dma.vaddr = Value;
+//            printf("VBUS LO (%x)\n", Value);
+//            break;
+//        case 0x0b:
+//            dma.vaddr |= (Value << 8);
+//            dma.vaddr &= 0x1fff;
+//            dma.cpu2vram = ((Value >> 6) & 1) == 1;
+//            printf("VBUS HI %x %x (%x)\n", dma.vaddr, dma.cpu2vram, Value);
+//            break;
+//        case 0x0c:
+//            dma.length = Value ? Value * 16 : 4096;
+//            printf("LEN %x\n", dma.length);
+//            break;
+//        case 0x0d:
+//            printf("Request %x\n", Value);
+//            if (Value & 0x80) {
+//                int i;
+//                printf("Transfer\n");
+//                for (i = 0; i < dma.length; i++) {
+//                    if (dma.cpu2vram) {
+//                        upperRam[dma.vaddr + i] = Rd6502(dma.caddr + i);
+//                    }
+//                    else {
+//                        Wr6502(dma.caddr + i, upperRam[dma.vaddr + i]);
+//                    }
+//                }
+//            }
+//            else if ((Value & 0x80) == 0) {
+//
+//            }
+//            break;
+//    }
+//}
+
 void memorymap_registers_write(uint32 Addr, uint8 Value)
 {
     regs[Addr & 0x1fff] = Value;
     switch (Addr & 0x1fff) {
-        case 0x00:
-        case 0x01:
-        case 0x02:
-        case 0x03:
-            break;
         case 0x23:
             timer_write(Value);
             break;
@@ -133,11 +181,6 @@ void memorymap_registers_write(uint32 Addr, uint8 Value)
         case 0x14: case 0x15: case 0x16: case 0x17:
             sound_soundport_w(((Addr & 0x4) >> 2), Addr & 3, Value);
             break;
-        case 0x28:
-        case 0x29:
-        case 0x2a:
-            sound_noise_w(Addr & 0x07, Value);
-            break;
         case 0x18:
         case 0x19:
         case 0x1a:
@@ -145,6 +188,14 @@ void memorymap_registers_write(uint32 Addr, uint8 Value)
         case 0x1c:
             sound_sounddma_w(Addr & 0x07, Value);
             break;
+        case 0x28:
+        case 0x29:
+        case 0x2a:
+            sound_noise_w(Addr & 0x07, Value);
+            break;
+        //case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d:
+        //    dma_write(Addr, Value);
+        //    break;
     }
 }
 
@@ -182,7 +233,7 @@ byte Rd6502(register word Addr)
             return upperRam[Addr & 0x1fff];
         case 0x6:
         case 0x7:
-            return programRom[Addr & 0x1fff];
+            return Addr >> 8; // Not usable
         case 0x8:
         case 0x9:
         case 0xa:

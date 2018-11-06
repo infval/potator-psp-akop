@@ -2,6 +2,7 @@
 #define __TYPES_H__
 
 #ifndef _uint8_DEFINED
+#define _uint8_DEFINED
 
 typedef unsigned char       uint8;
 typedef unsigned short      uint16;

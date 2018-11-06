@@ -81,7 +81,7 @@ void sound_stream_update(uint8 *stream, int len)
                             on = channel->pos <= channel->size / 2;
                             break;
                         case 3:
-                            on = channel->pos <= (9 * channel->size) >> 5;
+                            on = channel->pos <= (9 * channel->size) >> 5; // (8 * ???
                             break;
                     }
                     s = on ? channel->volume /*<< 8*/ : 0;
@@ -114,7 +114,7 @@ void sound_stream_update(uint8 *stream, int len)
                         b2 = (m_noise.state & 0x20) != 0;
                         m_noise.state = (m_noise.state << 1) + (b1 != b2 ? 1 : 0);
                         break;
-                    case SVISION_NOISE_Type14Bit:
+                    case SVISION_NOISE_Type14Bit: // 15Bit ???
                     default:
                         m_noise.value = m_noise.state & 0x2000 ? 1 : 0;
                         b1 = (m_noise.state & 0x2000) != 0;

@@ -47,10 +47,10 @@ const static uint8 palettes[SV_COLOR_SCHEME_COUNT][12] = {
       8,  24,  32,
 },
 {
-    0x70, 0xb0, 0x78,
-    0x48, 0x98, 0x90,
-    0x24, 0x58, 0x60,
-    0x08, 0x24, 0x30,
+    0x7b, 0xc7, 0x7b,
+    0x52, 0xa6, 0x8c,
+    0x2e, 0x62, 0x60,
+    0x0d, 0x32, 0x2e,
 },
 };
 
@@ -60,7 +60,7 @@ static int paletteIndex;
 #define SB_MAX (SV_GHOSTING_MAX + 1)
 static int ghostCount = 0;
 static uint8 *screenBuffers[SB_MAX];
-static uint8 screenBufferStartX[SB_MAX];
+static uint8 screenBufferInnerX[SB_MAX];
 
 static void add_ghosting(uint32 scanline, uint16 *backbuffer, uint8 start_x, uint8 end_x);
 
@@ -120,31 +120,31 @@ void gpu_set_color_scheme(int colorScheme)
 //    }
 //}
 
-void gpu_render_scanline(uint32 scanline, uint16 *backbuffer, uint8 startx, uint8 endx)
+void gpu_render_scanline(uint32 scanline, uint16 *backbuffer, uint8 innerx, uint8 size)
 {
     uint8 *vram_line = memorymap_getUpperRamPointer() + scanline;
-    uint8 x, j = startx, b = 0;
+    uint8 x, j = innerx, b = 0;
 
     // #1
     if (j & 3) {
         b = *vram_line++;
         b >>= (j & 3) * 2;
     }
-    for (x = 0; x < endx; x++, j++) {
+    for (x = 0; x < size; x++, j++) {
         if (!(j & 3)) {
             b = *(vram_line++);
         }
         backbuffer[x] = palette[b & 3];
         b >>= 2;
     }
-    // #2
-    /*for (x = 0; x < end_x; x++, j++) {
+    // #2 Slow
+    /*for (x = 0; x < size; x++, j++) {
         b = vram_line[j >> 2];
         backbuffer[x] = palette[(b >> ((j & 3) * 2)) & 3];
     }*/
 
     if (ghostCount != 0) {
-        add_ghosting(scanline, backbuffer, startx, endx);
+        add_ghosting(scanline, backbuffer, innerx, size);
     }
 }
 
@@ -176,7 +176,7 @@ void gpu_set_ghosting(int frameCount)
     }
 }
 
-static void add_ghosting(uint32 scanline, uint16 *backbuffer, uint8 startx, uint8 endx)
+static void add_ghosting(uint32 scanline, uint16 *backbuffer, uint8 innerx, uint8 size)
 {
     static int curSB = 0;
     static int lineCount = 0;
@@ -184,9 +184,9 @@ static void add_ghosting(uint32 scanline, uint16 *backbuffer, uint8 startx, uint
     uint8 *vram_line = memorymap_getUpperRamPointer() + scanline;
     uint8 x, i, j;
 
-    screenBufferStartX[curSB] = startx;
+    screenBufferInnerX[curSB] = innerx;
     memset(screenBuffers[curSB] + lineCount * SV_W / 4, 0, SV_W / 4);
-    for (j = startx, x = 0; x < endx; x++, j++) {
+    for (j = innerx, x = 0; x < size; x++, j++) {
         uint8 b = vram_line[j >> 2];
         uint8 innerInd = (j & 3) * 2;
         uint8 c = (b >> innerInd) & 3;
@@ -194,7 +194,7 @@ static void add_ghosting(uint32 scanline, uint16 *backbuffer, uint8 startx, uint
         if (c == 0) {
             for (i = 0; i < ghostCount; i++) {
                 uint8 sbInd = (curSB + (SB_MAX - 1) - i) % SB_MAX;
-                innerInd = ((screenBufferStartX[sbInd] + x) & 3) * 2;
+                innerInd = ((screenBufferInnerX[sbInd] + x) & 3) * 2;
                 c = (screenBuffers[sbInd][pixInd] >> innerInd) & 3;
                 if (c != 0) {
 #if 0

@@ -6,10 +6,11 @@
 #include <stdio.h>
 
 enum {
-      SV_XSIZE = 0x00
-    , SV_XPOS  = 0x02
-    , SV_YPOS  = 0x03
-    , SV_BANK  = 0x26
+      XSIZE = 0x00
+  //, YSIZE = 0x01
+    , XPOS  = 0x02
+    , YPOS  = 0x03
+    , BANK  = 0x26
 };
 
 void memorymap_set_dma_finished(void);

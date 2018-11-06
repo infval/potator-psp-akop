@@ -13,8 +13,8 @@ void timer_reset(void)
 
 void timer_write(uint8 data)
 {
-    uint32 d = data ? data : 0x100; // Dancing Block
-    if ((memorymap_getRegisters()[SV_BANK] >> 4) & 1) {
+    uint32 d = data ? data : 0x100; // Dancing Block. d = data; ???
+    if ((memorymap_getRegisters()[BANK] >> 4) & 1) {
         timer_cycles = d * 0x4000; // Bubble World, Eagle Plan...
     }
     else {
