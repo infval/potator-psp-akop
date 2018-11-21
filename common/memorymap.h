@@ -6,8 +6,8 @@
 #include <stdio.h>
 
 enum {
-      XSIZE = 0x00
-  //, YSIZE = 0x01
+      XSIZE = 0x00 /*
+    , YSIZE = 0x01  */
     , XPOS  = 0x02
     , YPOS  = 0x03
     , BANK  = 0x26

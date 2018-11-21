@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-#define SV_CORE_VERSION 0x01000001U
+#define SV_CORE_VERSION 0x01000002U
 #define SV_CORE_VERSION_MAJOR ((SV_CORE_VERSION >> 24) & 0xFF)
 #define SV_CORE_VERSION_MINOR ((SV_CORE_VERSION >> 12) & 0xFFF)
 #define SV_CORE_VERSION_PATCH ((SV_CORE_VERSION >>  0) & 0xFFF)
@@ -75,10 +75,10 @@ void supervision_set_color_scheme(int colorScheme);
  */
 void supervision_set_ghosting(int frameCount);
 /*!
- * Generate U8 (0 - 127), 2 channels.
+ * Generate U8 (0 - 45), 2 channels.
  * \param len in bytes.
  */
-void supervision_update_sound(uint8 *stream, int len);
+void supervision_update_sound(uint8 *stream, uint32 len);
 
 /*!
  * Save state to '{statePath}{id}.svst' if id >= 0, otherwise '{statePath}'.

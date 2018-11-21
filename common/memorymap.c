@@ -179,19 +179,19 @@ void memorymap_registers_write(uint32 Addr, uint8 Value)
             return;
         case 0x10: case 0x11: case 0x12: case 0x13:
         case 0x14: case 0x15: case 0x16: case 0x17:
-            sound_soundport_w(((Addr & 0x4) >> 2), Addr & 3, Value);
+            sound_wave_write(((Addr & 0x4) >> 2), Addr & 3, Value);
             break;
         case 0x18:
         case 0x19:
         case 0x1a:
         case 0x1b:
         case 0x1c:
-            sound_sounddma_w(Addr & 0x07, Value);
+            sound_dma_write(Addr & 0x07, Value);
             break;
         case 0x28:
         case 0x29:
         case 0x2a:
-            sound_noise_w(Addr & 0x07, Value);
+            sound_noise_write(Addr & 0x07, Value);
             break;
         //case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d:
         //    dma_write(Addr, Value);
@@ -265,11 +265,11 @@ void memorymap_save_state(FILE *fp)
     fwrite(lowerRam, 0x2000, 1, fp);
     fwrite(upperRam, 0x2000, 1, fp);
 
-    ibank = (lowerRomBank - programRom) / 0x4000;
-    fwrite(&ibank, sizeof(ibank), 1, fp);
+    ibank = (uint8)((lowerRomBank - programRom) / 0x4000);
+    WRITE_uint8(ibank, fp);
 
-    fwrite(&dma_finished, sizeof(dma_finished), 1, fp);
-    fwrite(&timer_shot,   sizeof(timer_shot),   1, fp);
+    WRITE_BOOL(dma_finished, fp);
+    WRITE_BOOL(timer_shot,   fp);
 }
 
 void memorymap_load_state(FILE *fp)
@@ -279,11 +279,11 @@ void memorymap_load_state(FILE *fp)
     fread(lowerRam, 0x2000, 1, fp);
     fread(upperRam, 0x2000, 1, fp);
 
-    fread(&ibank, sizeof(ibank), 1, fp);
+    READ_uint8(ibank, fp);
     lowerRomBank = programRom + ibank * 0x4000;
 
-    fread(&dma_finished, sizeof(dma_finished), 1, fp);
-    fread(&timer_shot,   sizeof(timer_shot),   1, fp);
+    READ_BOOL(dma_finished, fp);
+    READ_BOOL(timer_shot,   fp);
 }
 
 uint8 *memorymap_getLowerRamPointer(void)

@@ -37,12 +37,12 @@ void timer_exec(uint32 cycles)
 
 void timer_save_state(FILE *fp)
 {
-    fwrite(&timer_cycles, sizeof(timer_cycles), 1, fp);
-    fwrite(&timer_activated, sizeof(timer_activated), 1, fp);
+    WRITE_int32(timer_cycles, fp);
+    WRITE_BOOL(timer_activated, fp);
 }
 
 void timer_load_state(FILE *fp)
 {
-    fread(&timer_cycles, sizeof(timer_cycles), 1, fp);
-    fread(&timer_activated, sizeof(timer_activated), 1, fp);
+    READ_int32(timer_cycles, fp);
+    READ_BOOL(timer_activated, fp);
 }

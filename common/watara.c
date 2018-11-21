@@ -126,7 +126,7 @@ void supervision_set_input(uint8 data)
     controls_state_write(data);
 }
 
-void supervision_update_sound(uint8 *stream, int len)
+void supervision_update_sound(uint8 *stream, uint32 len)
 {
     sound_stream_update(stream, len);
 }
@@ -145,6 +145,20 @@ static void get_state_path(const char *statePath, int8 id, char **newPath)
     }
 }
 
+#define EXPAND_M6502 \
+    X(uint8, A) \
+    X(uint8, P) \
+    X(uint8, X) \
+    X(uint8, Y) \
+    X(uint8, S) \
+    X(uint8, PC.B.l) \
+    X(uint8, PC.B.h) \
+    X(int32, IPeriod) \
+    X(int32, ICount) \
+    X(uint8, IRequest) \
+    X(uint8, AfterCLI) \
+    X(int32, IBackup)
+
 BOOL supervision_save_state(const char *statePath, int8 id)
 {
     FILE *fp;
@@ -155,12 +169,14 @@ BOOL supervision_save_state(const char *statePath, int8 id)
     if (id >= 0)
         free(newPath);
     if (fp) {
-        fwrite(&m6502_registers, sizeof(m6502_registers), 1, fp);
-        fwrite(&irq, sizeof(irq), 1, fp);
-
         memorymap_save_state(fp);
         sound_save_state(fp);
         timer_save_state(fp);
+
+#define X(type, member) WRITE_##type(m6502_registers.member, fp);
+        EXPAND_M6502
+#undef X
+        WRITE_BOOL(irq, fp);
 
         fflush(fp);
         fclose(fp);
@@ -181,14 +197,14 @@ BOOL supervision_load_state(const char *statePath, int8 id)
     if (id >= 0)
         free(newPath);
     if (fp) {
-        sound_reset();
-
-        fread(&m6502_registers, sizeof(m6502_registers), 1, fp);
-        fread(&irq, sizeof(irq), 1, fp);
-
         memorymap_load_state(fp);
         sound_load_state(fp);
         timer_load_state(fp);
+
+#define X(type, member) READ_##type(m6502_registers.member, fp);
+        EXPAND_M6502
+#undef X
+        READ_BOOL(irq, fp);
 
         fclose(fp);
     }
