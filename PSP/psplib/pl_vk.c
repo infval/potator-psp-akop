@@ -108,11 +108,11 @@ int pl_vk_load(pl_vk_layout *layout,
     return 0;
   }
 
-  int code;
+  uint32_t code;
   uint16_t x, y, w, h;
 
   /* Determine button count */
-  while ((fscanf(file, "0x%x\t%hi\t%hi\t%hi\t%hi\n",
+  while ((fscanf(file, "0x%x\t%hu\t%hu\t%hu\t%hu\n",
                 &code, &x, &y, &w, &h) == 5) && code)
     layout->key_count++;
 
@@ -132,7 +132,7 @@ int pl_vk_load(pl_vk_layout *layout,
   pl_vk_button *button;
   for (i = 0, button = layout->keys; i < layout->key_count; i++, button++)
   {
-    if (fscanf(file, "0x%x\t%hi\t%hi\t%hi\t%hi\n",
+    if (fscanf(file, "0x%x\t%hu\t%hu\t%hu\t%hu\n",
                &code, &x, &y, &w, &h) < 5)
     {
       fclose(file);
@@ -149,7 +149,7 @@ int pl_vk_load(pl_vk_layout *layout,
   }
 
   /* "Swallow" last record */
-  fscanf(file, "0x%x\t%hi\t%hi\t%hi\t%hi\n",
+  fscanf(file, "0x%x\t%hu\t%hu\t%hu\t%hu\n",
          &code, &x, &y, &w, &h);
 
   /* Determine sticky count */
@@ -224,7 +224,7 @@ int pl_vk_load(pl_vk_layout *layout,
   fscanf(file, "0x%x\t", &code);
 
   /* Read the offsets */
-  if (fscanf(file, "%hi\t%hi\n", 
+  if (fscanf(file, "%hu\t%hu\n", 
              &layout->offset_x, &layout->offset_y) < 2)
   {
     fclose(file);

@@ -71,7 +71,7 @@ int pl_ini_load(pl_ini_file *file,
     return 0;
 
   pl_ini_section *current_section = NULL;
-  pl_ini_pair *tail;
+  pl_ini_pair *tail = NULL;
 
   char string[PL_MAX_LINE_LENGTH],
        name[PL_MAX_LINE_LENGTH];
@@ -79,9 +79,6 @@ int pl_ini_load(pl_ini_file *file,
   int len;
 
   /* Create unnamed section */
-  current_section = NULL;
-  tail = NULL;
-
   while(!feof(stream) && fgets(string, sizeof(string), stream))
   {
     /* TODO: Skip whitespace */

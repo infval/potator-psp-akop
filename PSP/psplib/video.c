@@ -253,12 +253,12 @@ void pspVideoPutImage(const PspImage *image, int dx, int dy, int dw, int dh)
     sceGuTexFilter(GU_LINEAR, GU_LINEAR);
  
     struct TexVertex* vertices;
-    int start, end, sc_end, slsz_scaled;
+    int start, end, /*sc_end,*/ slsz_scaled;
     slsz_scaled = ceil((float)dw * (float)SLICE_SIZE) / (float)image->Viewport.Width;
 
     start = image->Viewport.X;
     end = image->Viewport.X + image->Viewport.Width;
-    sc_end = dx + dw;
+    /*sc_end = dx + dw;*/
 
     /* TODO: Convert to floating-point coords */
     for (; start < end; start += SLICE_SIZE, dx += slsz_scaled)
@@ -340,12 +340,12 @@ void pspVideoPutImageAlpha(const PspImage *image, int dx, int dy, int dw, int dh
     sceGuTexFilter(GU_LINEAR, GU_LINEAR);
  
     struct TexVertex* vertices;
-    int start, end, sc_end, slsz_scaled;
+    int start, end, /*sc_end,*/ slsz_scaled;
     slsz_scaled = ceil((float)dw * (float)SLICE_SIZE) / (float)image->Viewport.Width;
 
     start = image->Viewport.X;
     end = image->Viewport.X + image->Viewport.Width;
-    sc_end = dx + dw;
+    /*sc_end = dx + dw;*/
 
     /* TODO: Convert to floating-point coords */
     for (; start < end; start += SLICE_SIZE, dx += slsz_scaled)

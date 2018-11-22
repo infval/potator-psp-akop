@@ -189,12 +189,12 @@ void pl_video_put_image(const pl_image *image,
   sceGuTexFilter(GU_LINEAR, GU_LINEAR);
 
   pl_gfx_vertex *vertices;
-  int start, end, sc_end, slsz_scaled;
+  int start, end, /*sc_end,*/ slsz_scaled;
   slsz_scaled = ceil((float)dw * (float)SLICE_SIZE) / (float)image->view.w;
 
   start = image->view.x;
   end = image->view.x + image->view.w;
-  sc_end = dx + dw;
+  /*sc_end = dx + dw;*/
 
   for (; start < end; start += SLICE_SIZE, dx += slsz_scaled)
   {

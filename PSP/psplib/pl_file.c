@@ -260,7 +260,7 @@ static void sort_file_list(pl_file_list *list,
 
   /* Copy the file entries to an array */
   files = (pl_file**)malloc(sizeof(pl_file*) * count);
-  for (file = list->files, fp = files; file; file = file->next, i++, fp++)
+  for (file = list->files, fp = files; file; file = file->next, fp++)
     *fp = file;
 
   /* Sort the array */

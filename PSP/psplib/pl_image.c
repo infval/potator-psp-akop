@@ -375,7 +375,7 @@ int pl_image_save_png_stream(const pl_image *image,
   int height = image->view.h;
   int bytes_per_pixel = pl_image_get_bytes_per_pixel(image->format);
   void *line_ptr, *pel_ptr;
-  uint32_t color;
+  uint32_t color = 0;
 
   if (!(bitmap = (u8*)malloc(sizeof(u8) * width * height * 3)))
     return 0;
@@ -558,7 +558,7 @@ int pl_image_create_thumbnail(const pl_image *original,
   }
 
   int x, y;
-  uint32_t color;
+  uint32_t color = 0;
   uint bytes_per_pixel =
     pl_image_get_bytes_per_pixel(original->format);
   void *slp = original->bitmap + original->view.y * original->pitch;

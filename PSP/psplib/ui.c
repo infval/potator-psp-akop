@@ -93,7 +93,7 @@ struct AdhocMatchEvent
   int NewEvent;
   int EventID;
   PspMAC EventMAC;
-  PspMAC CurrentMAC;
+  PspMAC CurrentMAC; /* is never used */
   char OptData[512];
 };
 

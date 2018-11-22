@@ -14,16 +14,20 @@ EXTRA_TARGETS=EBOOT.PBP
 PSP_EBOOT_TITLE=$(PSP_APP_NAME) $(PSP_APP_VER)
 PSP_EBOOT_ICON=$(PSPAPP)/potator-icon.png
 
+POTAROOT=common
+
 BUILD_EMUL=\
- common/controls.o \
- common/gpu.o \
- common/memorymap.o \
- common/sound.o \
- common/timer.o \
- common/watara.o \
- common/m6502/m6502.o
-BUILD_PORT=$(PSPAPP)/emulate.o \
-           $(PSPAPP)/main.o $(PSPAPP)/menu.o
+ $(POTAROOT)/controls.o \
+ $(POTAROOT)/gpu.o \
+ $(POTAROOT)/memorymap.o \
+ $(POTAROOT)/sound.o \
+ $(POTAROOT)/timer.o \
+ $(POTAROOT)/watara.o \
+ $(POTAROOT)/m6502/m6502.o
+BUILD_PORT=\
+ $(PSPAPP)/emulate.o \
+ $(PSPAPP)/menu.o \
+ $(PSPAPP)/main.o
 
 OBJS=$(BUILD_EMUL) $(BUILD_PORT)
 
@@ -33,7 +37,7 @@ BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAM
 CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
 CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS=$(CFLAGS)
-INCDIR=$(PSPLIB) $(MZLIB) $(PSPAPP) common/m6502 common
+INCDIR=$(PSPLIB) $(MZLIB) $(PSPAPP) $(POTAROOT)/m6502 $(POTAROOT)
 LIBDIR=$(PSPLIB) $(MZLIB)
 LIBS=-lpsplib -lpng -lpspgu -lpsppower -lminizip \
      -lz -lm -lc -lpspaudio -lpsprtc -lpspwlan -lpspnet_adhoc \

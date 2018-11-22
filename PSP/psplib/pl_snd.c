@@ -313,7 +313,7 @@ static unsigned int get_bytes_per_sample(int channel)
 
 int pl_snd_pause(int channel)
 {
-  if (channel < 0 || channel > AUDIO_CHANNELS)
+  if (channel < 0 || channel >= AUDIO_CHANNELS)
     return 0;
   sound_stream[channel].paused = 1;
   return 1;
@@ -321,7 +321,7 @@ int pl_snd_pause(int channel)
 
 int pl_snd_resume(int channel)
 {
-  if (channel < 0 || channel > AUDIO_CHANNELS)
+  if (channel < 0 || channel >= AUDIO_CHANNELS)
     return 0;
   sound_stream[channel].paused = 0;
   return 1;
