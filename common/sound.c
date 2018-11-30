@@ -17,6 +17,8 @@ typedef struct {
     uint16 count;
 } SVISION_CHANNEL;
 SVISION_CHANNEL m_channel[2];
+// For clear sound (no grating), sync with m_channel
+SVISION_CHANNEL ch[2];
 
 typedef struct  {
     uint8 reg[3];
@@ -44,50 +46,41 @@ void sound_reset(void)
     memset(m_channel, 0, sizeof(m_channel));
     memset(&m_noise,  0, sizeof(m_noise)  );
     memset(&m_dma,    0, sizeof(m_dma)    );
+
+    memset(ch,        0, sizeof(ch)       );
 }
 
 void sound_stream_update(uint8 *stream, uint32 len)
 {
     size_t i, j;
     SVISION_CHANNEL *channel;
-#ifndef SV_AUDIO_S16
     uint8 s = 0;
     uint8 *left  = stream + 0;
     uint8 *right = stream + 1;
-#define SHIFT(x)
-#else
-    int16 s = 0;
-    int16 *left  = (int16*)(stream + 0);
-    int16 *right = (int16*)(stream + 2);
-    len >>= 1;
-#define SHIFT(x) ((x) <<= (8 + 1))
-#endif
 
     for (i = 0; i < len >> 1; i++, left += 2, right += 2) {
         *left = *right = 0;
 
         for (channel = m_channel, j = 0; j < 2; j++, channel++) {
-            if (channel->size != 0) {
-                if (channel->on || channel->count) {
+            if (ch[j].size != 0) {
+                if (ch[j].on || channel->count != 0) {
                     BOOL on = FALSE;
-                    switch (channel->waveform) {
+                    switch (ch[j].waveform) {
                         case 0: // 12.5%
-                            on = channel->pos < (28 * channel->size) >> 5;
+                            on = ch[j].pos < (28 * ch[j].size) >> 5;
                             break;
                         case 1: // 25%
-                            on = channel->pos < (24 * channel->size) >> 5;
+                            on = ch[j].pos < (24 * ch[j].size) >> 5;
                             break;
-                        default:
                         case 2: // 50%
-                            on = channel->pos < channel->size / 2;
+                            on = ch[j].pos < ch[j].size / 2;
                             break;
                         case 3: // 75%
-                            on = channel->pos < channel->size / 4;
-                            // MESS/MAME:     <= (9 * channel->size) >> 5;
+                            on = ch[j].pos < ch[j].size / 4;
+                            // MESS/MAME:  <= (9 * ch[j].size) >> 5;
                             break;
                     }
-                    s = on ? channel->volume : 0;
-                    SHIFT(s);
+                    s = on ? ch[j].volume : 0;
                     if (j == 0) {
                         *right += s;
                     }
@@ -95,15 +88,22 @@ void sound_stream_update(uint8 *stream, uint32 len)
                         *left += s;
                     }
                 }
-                channel->pos++;
-                if (channel->pos >= channel->size)
-                    channel->pos = 0;
+                ch[j].pos++;
+                if (ch[j].pos >= ch[j].size) {
+                    ch[j].pos = 0;
+#ifndef SV_DISABLE_SUPER_DUPER_WAVE
+                    // Transition from off to on
+                    if (channel->on) {
+                        memcpy(&ch[j], channel, sizeof(ch[j]));
+                        channel->on = FALSE;
+                    }
+#endif
+                }
             }
         }
 
-        if (m_noise.on && (m_noise.play || m_noise.count)) {
+        if (m_noise.on && (m_noise.play || m_noise.count != 0)) {
             s = m_noise.value * m_noise.volume;
-            SHIFT(s);
             if (m_noise.left)
                 *left += s;
             if (m_noise.right)
@@ -123,17 +123,16 @@ void sound_stream_update(uint8 *stream, uint32 len)
         if (m_dma.on) {
             uint8 sample;
             uint16 addr = m_dma.start + (uint16)m_dma.pos / 2;
-            //if (addr >= 0x8000 && addr < 0xc000) {
+            if (addr >= 0x8000 && addr < 0xc000) {
                 sample = memorymap_getRomPointer()[(addr & 0x3fff) | m_dma.ca14to16];
-            //}
-            //else {
-            //    sample = Rd6502(addr);
-            //}
+            }
+            else {
+                sample = Rd6502(addr);
+            }
             if (((uint16)m_dma.pos) & 1)
                 s = (sample & 0xf);
             else
                 s = (sample & 0xf0) >> 4;
-            SHIFT(s);
             if (m_dma.left)
                 *left += s;
             if (m_dma.right)
@@ -167,19 +166,22 @@ void sound_wave_write(int which, int offset, uint8 data)
         case 1: {
             uint16 size;
             size = channel->reg[0] | ((channel->reg[1] & 7) << 8);
-            if (size) {
-                channel->size = (uint16)((real)SV_SAMPLE_RATE * (size << 5) / UNSCALED_CLOCK);
-            }
-            else {
-                channel->size = 0;
-            }
+            // if size == 0 then channel->size == 0
+            channel->size = (uint16)((real)SV_SAMPLE_RATE * ((size + 1) << 5) / UNSCALED_CLOCK);
             channel->pos = 0;
         }
             break;
         case 2:
             channel->on       =  data & 0x40;
             channel->waveform = (data & 0x30) >> 4;
-            channel->volume   =  data & 0xf;
+            channel->volume   =  data & 0x0f;
+#ifndef SV_DISABLE_SUPER_DUPER_WAVE
+            if (!channel->on || ch[which].size == 0 || channel->size == 0) {
+                memcpy(&ch[which], channel, sizeof(ch[which]));
+            }
+#else
+            memcpy(&ch[which], channel, sizeof(ch[which]));
+#endif
             break;
         case 3:
             channel->count = data + 1;
@@ -221,11 +223,12 @@ void sound_noise_write(int offset, uint8 data)
     m_noise.reg[offset] = data;
     switch (offset) {
         case 0: {
+            // Wataroo >= v0.7.1.0
             uint32 divisor = 8 << (data >> 4);
             // EQU_Watara.asm from Wataroo
             //uint32 divisor = 16 << (data >> 4);
-            //if (data == 0) divisor = 8; // 500KHz are too many anyway
-            //else if (data > 0xd) divisor >>= 2;
+            //if ((data >> 4) == 0) divisor = 8; // 500KHz are too many anyway
+            //else if ((data >> 4) > 0xd) divisor >>= 2;
             m_noise.step = UNSCALED_CLOCK / ((real)SV_SAMPLE_RATE * divisor);
             // MESS/MAME. Wrong
             //m_noise.step = UNSCALED_CLOCK / (256.0 * SV_SAMPLE_RATE * (1 + (data >> 4)));
@@ -237,10 +240,10 @@ void sound_noise_write(int offset, uint8 data)
             break;
         case 2:
             m_noise.type  = (data & 1) ? 14 : 6;
-            m_noise.play  = data & 2;
-            m_noise.right = data & 4;
-            m_noise.left  = data & 8;
-            m_noise.on    = data & 0x10; /* honey bee start */
+            m_noise.play  =  data & 2;
+            m_noise.right =  data & 4;
+            m_noise.left  =  data & 8;
+            m_noise.on    =  data & 0x10; /* honey bee start */
             m_noise.state = 1;
             break;
     }

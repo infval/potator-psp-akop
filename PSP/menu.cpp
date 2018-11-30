@@ -63,7 +63,7 @@ static int ResumeEmulation;
 static PspImage *Background;
 static PspImage *NoSaveIcon;
 
-static const char *QuickloadFilter[] = { "ZIP", "SV", '\0' },
+static const char *QuickloadFilter[] = { "ZIP", "SV", "BIN", "WS", '\0' },
   PresentSlotText[] = "\026\244\020 Save\t\026\001\020 Load\t\026\243\020 Delete",
   EmptySlotText[] = "\026\244\020 Save",
   ControlHelpText[] = "\026\250\020 Change mapping\t\026\001\020 Save to \271\t\026\243\020 Load defaults";
