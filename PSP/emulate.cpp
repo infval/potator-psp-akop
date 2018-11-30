@@ -239,8 +239,8 @@ static void psp_audio_callback(pl_snd_sample* buf,
   u8* b = bufU8;
   int i;
   for (i = 0; i < (int)samples; i++) {
-    buf[i].stereo.l = *(b++) << 8;
-    buf[i].stereo.r = *(b++) << 8;
+    buf[i].stereo.l = *(b++) << (8 + 1);
+    buf[i].stereo.r = *(b++) << (8 + 1);
   }
 }
 
