@@ -109,7 +109,7 @@ void sound_stream_update(uint8 *stream, uint32 len)
             if (m_noise.right)
                 *right += s;
             m_noise.pos += m_noise.step;
-            if (m_noise.pos >= 1.0) {
+            while (m_noise.pos >= 1.0) { // if/while difference - Pacific Battle
                 // LFSR: x^2 + x + 1
                 uint16 feedback;
                 m_noise.value = m_noise.state & 1;
@@ -169,6 +169,16 @@ void sound_wave_write(int which, int offset, uint8 data)
             // if size == 0 then channel->size == 0
             channel->size = (uint16)((real)SV_SAMPLE_RATE * ((size + 1) << 5) / UNSCALED_CLOCK);
             channel->pos = 0;
+#ifndef SV_DISABLE_SUPER_DUPER_WAVE
+            // Popo Team
+            if (channel->count != 0 || ch[which].size == 0 || channel->size == 0) {
+                ch[which].size = channel->size;
+                if (channel->count == 0)
+                    ch[which].pos = 0;
+            }
+#else
+            memcpy(&ch[which], channel, sizeof(ch[which]));
+#endif
         }
             break;
         case 2:
@@ -177,7 +187,10 @@ void sound_wave_write(int which, int offset, uint8 data)
             channel->volume   =  data & 0x0f;
 #ifndef SV_DISABLE_SUPER_DUPER_WAVE
             if (!channel->on || ch[which].size == 0 || channel->size == 0) {
+                uint16 pos = ch[which].pos;
                 memcpy(&ch[which], channel, sizeof(ch[which]));
+                if (channel->count != 0) // Journey to the West
+                    ch[which].pos = pos;
             }
 #else
             memcpy(&ch[which], channel, sizeof(ch[which]));
@@ -185,6 +198,9 @@ void sound_wave_write(int which, int offset, uint8 data)
             break;
         case 3:
             channel->count = data + 1;
+#ifndef SV_DISABLE_SUPER_DUPER_WAVE
+            ch[which].size = channel->size; // Sonny Xpress!
+#endif
             break;
     }
 }

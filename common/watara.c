@@ -91,6 +91,8 @@ void supervision_exec_ex(uint16 *backbuffer, int16 backbufferWidth)
     scan   = regs[XPOS] / 4 + regs[YPOS] * 0x30;
     innerx = regs[XPOS] & 3;
     size   = regs[XSIZE]; // regs[XSIZE] <= SV_W
+    if (size > SV_W)
+        size = SV_W; // 192: Chimera, Matta Blatta, Tennis Pro '92
 
     for (i = 0; i < SV_H; i++) {
         if (scan >= 0x1fe0)

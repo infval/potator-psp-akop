@@ -19,6 +19,7 @@ static uint32 programRomSize;
 
 static BOOL dma_finished = FALSE;
 static BOOL timer_shot   = FALSE;
+static BOOL isMAGNUM     = FALSE;
 
 static void check_irq(void)
 {
@@ -60,7 +61,7 @@ void memorymap_reset(void)
     //  96KB ->  80KB
     // 112KB ->  96KB
     // 128KB -> 112KB (max in theory)
-    // 512KB -- 'Journey to the West' isn't supported
+    // 512KB -- 'Journey to the West' is supported! (MAGNUM cartridge)
     upperRomBank = programRom + (programRomSize - 0x4000);
 
     memset(lowerRam, 0x00, 0x2000);
@@ -110,73 +111,82 @@ uint8 memorymap_registers_read(uint32 Addr)
     return data;
 }
 
-// General Purpose DMA
+// General Purpose DMA (for 'Journey to the West')
 // Pass only the first test (WaTest.bin from Wataroo)
-//typedef struct {
-//    uint16 caddr;
-//    uint16 vaddr;
-//    BOOL cpu2vram;
-//    uint16 length;
-//} GENERIC_DMA;
-//static GENERIC_DMA dma;
-//
-//static void dma_write(uint32 Addr, uint8 Value)
-//{
-//    switch (Addr & 0x1fff) {
-//        case 0x08:
-//            dma.caddr = Value;
-//            printf("CBUS LO (%x)\n", Value);
-//            break;
-//        case 0x09:
-//            dma.caddr |= (Value << 8);
-//            printf("CBUS HI %x (%x)\n", dma.caddr, Value);
-//            break;
-//        case 0x0a:
-//            dma.vaddr = Value;
-//            printf("VBUS LO (%x)\n", Value);
-//            break;
-//        case 0x0b:
-//            dma.vaddr |= (Value << 8);
-//            dma.vaddr &= 0x1fff;
-//            dma.cpu2vram = ((Value >> 6) & 1) == 1;
-//            printf("VBUS HI %x %x (%x)\n", dma.vaddr, dma.cpu2vram, Value);
-//            break;
-//        case 0x0c:
-//            dma.length = Value ? Value * 16 : 4096;
-//            printf("LEN %x\n", dma.length);
-//            break;
-//        case 0x0d:
-//            printf("Request %x\n", Value);
-//            if (Value & 0x80) {
-//                int i;
-//                printf("Transfer\n");
-//                for (i = 0; i < dma.length; i++) {
-//                    if (dma.cpu2vram) {
-//                        upperRam[dma.vaddr + i] = Rd6502(dma.caddr + i);
-//                    }
-//                    else {
-//                        Wr6502(dma.caddr + i, upperRam[dma.vaddr + i]);
-//                    }
-//                }
-//            }
-//            else if ((Value & 0x80) == 0) {
-//
-//            }
-//            break;
-//    }
-//}
+typedef struct {
+    uint16 caddr;
+    uint16 vaddr;
+    BOOL cpu2vram;
+    uint16 length;
+} GENERIC_DMA;
+static GENERIC_DMA dma;
+
+static void dma_write(uint32 Addr, uint8 Value)
+{
+    switch (Addr & 0x1fff) {
+        case 0x08: // CBUS LO
+            dma.caddr = Value;
+            break;
+        case 0x09: // CBUS HI
+            dma.caddr |= (Value << 8);
+            break;
+        case 0x0a: // VBUS LO
+            dma.vaddr = Value;
+            break;
+        case 0x0b: // VBUS HI
+            dma.vaddr |= (Value << 8);
+            dma.vaddr &= 0x1fff;
+            dma.cpu2vram = ((Value >> 6) & 1) == 1;
+            break;
+        case 0x0c: // LEN
+            dma.length = Value ? Value * 16 : 4096;
+            break;
+        case 0x0d: // Request
+            if (Value & 0x80) {
+                int i;
+                for (i = 0; i < dma.length; i++) {
+                    if (dma.cpu2vram) {
+                        upperRam[dma.vaddr + i] = Rd6502(dma.caddr + i);
+                    }
+                    else {
+                        Wr6502(dma.caddr + i, upperRam[dma.vaddr + i]);
+                    }
+                }
+            }
+            break;
+    }
+}
+
+static void update_lowerRomBank(void)
+{
+    uint32 bankOffset = 0;
+    if (isMAGNUM) {
+        bankOffset = (((regs[BANK] & 0x20) << 9) | ((regs[0x21] & 0xf) << 15));
+    }
+    else {
+        bankOffset =  ((regs[BANK] & 0xe0) << 9);
+    }
+    lowerRomBank = programRom + bankOffset % programRomSize;
+}
 
 void memorymap_registers_write(uint32 Addr, uint8 Value)
 {
     regs[Addr & 0x1fff] = Value;
     switch (Addr & 0x1fff) {
+        case 0x21:
+            // MAGNUM cartridge && Output (Link Port Data Direction)
+            if (isMAGNUM && regs[0x22] == 0) {
+                update_lowerRomBank();
+                check_irq();
+            }
+            break;
         case 0x23:
             timer_write(Value);
             break;
         case 0x26:
-            lowerRomBank = programRom + ((Value & 0xe0) << 9) % programRomSize;
+            update_lowerRomBank();
             check_irq();
-            return;
+            break;
         case 0x10: case 0x11: case 0x12: case 0x13:
         case 0x14: case 0x15: case 0x16: case 0x17:
             sound_wave_write(((Addr & 0x4) >> 2), Addr & 3, Value);
@@ -193,9 +203,9 @@ void memorymap_registers_write(uint32 Addr, uint8 Value)
         case 0x2a:
             sound_noise_write(Addr & 0x07, Value);
             break;
-        //case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d:
-        //    dma_write(Addr, Value);
-        //    break;
+        case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d:
+            dma_write(Addr, Value);
+            break;
     }
 }
 
@@ -255,6 +265,7 @@ BOOL memorymap_load(const uint8 *rom, uint32 size)
     }
     programRomSize = size;
     programRom = rom;
+    isMAGNUM = size > 131072;
     return TRUE;
 }
 

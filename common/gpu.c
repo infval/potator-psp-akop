@@ -15,7 +15,7 @@ static uint16 rgb555(uint8 r, uint8 g, uint8 b)
 
 static SV_MapRGBFunc mapRGB = rgb555;
 
-const static uint8 palettes[SV_COLOR_SCHEME_COUNT][12] = {
+static const uint8 palettes[SV_COLOR_SCHEME_COUNT][12] = {
 {
     252, 252, 252,
     168, 168, 168,
@@ -162,6 +162,9 @@ void gpu_set_ghosting(int frameCount)
         if (screenBuffers[0] == NULL) {
             for (i = 0; i < SB_MAX; i++) {
                 screenBuffers[i] = malloc(SV_H * SV_W / 4);
+                if (screenBuffers[i] == NULL) {
+                    return;
+                }
             }
         }
         for (i = 0; i < SB_MAX; i++) {
@@ -191,30 +194,28 @@ static void add_ghosting(uint32 scanline, uint16 *backbuffer, uint8 innerx, uint
         uint8 innerInd = (j & 3) * 2;
         uint8 c = (b >> innerInd) & 3;
         int pixInd = (x + lineCount * SV_W) / 4;
-        if (c == 0) {
+        if (c != 3) {
             for (i = 0; i < ghostCount; i++) {
                 uint8 sbInd = (curSB + (SB_MAX - 1) - i) % SB_MAX;
-                innerInd = ((screenBufferInnerX[sbInd] + x) & 3) * 2;
-                c = (screenBuffers[sbInd][pixInd] >> innerInd) & 3;
-                if (c != 0) {
+                uint8 innerInd_ = ((screenBufferInnerX[sbInd] + x) & 3) * 2;
+                uint8 c_ = (screenBuffers[sbInd][pixInd] >> innerInd_) & 3;
+                if (c_ > c) {
 #if 0
                     backbuffer[x] = palette[3 - 3 * i / ghostCount];
 #else
-                    uint8 r = palettes[paletteIndex][c * 3 + 0];
-                    uint8 g = palettes[paletteIndex][c * 3 + 1];
-                    uint8 b = palettes[paletteIndex][c * 3 + 2];
-                    r =  r + (palettes[paletteIndex][0] - r) * i / ghostCount;
-                    g =  g + (palettes[paletteIndex][1] - g) * i / ghostCount;
-                    b =  b + (palettes[paletteIndex][2] - b) * i / ghostCount;
+                    uint8 r = palettes[paletteIndex][c_ * 3 + 0];
+                    uint8 g = palettes[paletteIndex][c_ * 3 + 1];
+                    uint8 b = palettes[paletteIndex][c_ * 3 + 2];
+                    r =  r + (palettes[paletteIndex][c  * 3 + 0] - r) * i / ghostCount;
+                    g =  g + (palettes[paletteIndex][c  * 3 + 1] - g) * i / ghostCount;
+                    b =  b + (palettes[paletteIndex][c  * 3 + 2] - b) * i / ghostCount;
                     backbuffer[x] = mapRGB(r, g, b);
 #endif
                     break;
                 }
             }
         }
-        else {
-            screenBuffers[curSB][pixInd] |= c << innerInd;
-        }
+        screenBuffers[curSB][pixInd] |= c << innerInd;
     }
 
     if (lineCount == SV_H - 1) {

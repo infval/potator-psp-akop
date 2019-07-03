@@ -11,6 +11,7 @@
 /**               Alex Krasivsky  1996                      **/
 /**               Steve Nickolas  2002                      **/
 /**   Portions by Holger Picker   2002                      **/
+/**   ADC and SBC instructions provided by Scott Hemphill   **/
 /**     You are not allowed to distribute this software     **/
 /**     commercially. Please, notify me, if you make any    **/
 /**     changes to this file.                               **/
@@ -115,64 +116,43 @@
 #define M_TRB(Data) R->P = (R->P & ~Z_FLAG) | ((Data & R->A) == 0 ? Z_FLAG : 0);        \
                     Data &= ~R->A;
 
-#ifdef NO_DECIMAL
 
-#define M_ADC(Rg) \
-  K.W=R->A+Rg+(R->P&C_FLAG); \
-  R->P&=~(N_FLAG|V_FLAG|Z_FLAG|C_FLAG); \
-  R->P|=(~(R->A^Rg)&(R->A^K.B.l)&0x80? V_FLAG:0)| \
-        (K.B.h? C_FLAG:0)|ZNTable[K.B.l]; \
-  R->A=K.B.l
+/* The following code was provided by Mr. Scott Hemphill. Thanks a lot! */
+#define M_ADC(Rg)                                                       \
+    {                                                                   \
+    register unsigned int w;                                            \
+    if ((R->A ^ Rg) & 0x80) {                                           \
+        R->P &= ~V_FLAG; }                                              \
+    else {                                                              \
+        R->P |= V_FLAG;  }                                              \
+    if (R->P&D_FLAG) {                                                  \
+        w = (R->A & 0xf) + (Rg & 0xf) + (R->P & C_FLAG);                \
+        if (w >= 10) w = 0x10 | ((w+6)&0xf);                            \
+        w += (R->A & 0xf0) + (Rg & 0xf0);                               \
+        if (w >= 160) {                                                 \
+        R->P |= C_FLAG;                                                 \
+        if ((R->P&V_FLAG) && w >= 0x180) R->P &= ~ V_FLAG;              \
+        w += 0x60;                                                      \
+        } else {                                                        \
+        R->P &= ~C_FLAG;                                                \
+        if ((R->P&V_FLAG) && w < 0x80) R->P &= ~V_FLAG;                 \
+        }                                                               \
+    } else {                                                            \
+        w = R->A + Rg + (R->P&C_FLAG);                                  \
+        if (w >= 0x100) {                                               \
+        R->P |= C_FLAG;                                                 \
+        if ((R->P & V_FLAG) && w >= 0x180) R->P &= ~V_FLAG;             \
+        } else {                                                        \
+        R->P &= ~C_FLAG;                                                \
+        if ((R->P&V_FLAG) && w < 0x80) R->P &= ~V_FLAG;                 \
+        }                                                               \
+    }                                                                   \
+    R->A = (unsigned char)w;                                            \
+    R->P = (R->P & ~(Z_FLAG | N_FLAG)) | (R->A >= 0x80 ? N_FLAG : 0) | (R->A == 0 ? Z_FLAG : 0);    \
+    }
 
-/* Warning! C_FLAG is inverted before SBC and after it */
-#define M_SBC(Rg) \
-  K.W=R->A-Rg-(~R->P&C_FLAG); \
-  R->P&=~(N_FLAG|V_FLAG|Z_FLAG|C_FLAG); \
-  R->P|=((R->A^Rg)&(R->A^K.B.l)&0x80? V_FLAG:0)| \
-        (K.B.h? 0:C_FLAG)|ZNTable[K.B.l]; \
-  R->A=K.B.l
 
-#else /* NO_DECIMAL */
-
-#define M_ADC(Rg) \
-  if(R->P&D_FLAG) \
-  { \
-    K.B.l=(R->A&0x0F)+(Rg&0x0F)+(R->P&C_FLAG); \
-    if(K.B.l>9) K.B.l+=6; \
-    K.B.h=(R->A>>4)+(Rg>>4)+(K.B.l>15? 1:0); \
-    R->A=(K.B.l&0x0F)|(K.B.h<<4); \
-    R->P=(R->P&~C_FLAG)|(K.B.h>15? C_FLAG:0); \
-  } \
-  else \
-  { \
-    K.W=R->A+Rg+(R->P&C_FLAG); \
-    R->P&=~(N_FLAG|V_FLAG|Z_FLAG|C_FLAG); \
-    R->P|=(~(R->A^Rg)&(R->A^K.B.l)&0x80? V_FLAG:0)| \
-          (K.B.h? C_FLAG:0)|ZNTable[K.B.l]; \
-    R->A=K.B.l; \
-  }
-
-/* Warning! C_FLAG is inverted before SBC and after it */
-#define M_SBC(Rg) \
-  if(R->P&D_FLAG) \
-  { \
-    K.B.l=(R->A&0x0F)-(Rg&0x0F)-(~R->P&C_FLAG); \
-    if(K.B.l&0x10) K.B.l-=6; \
-    K.B.h=(R->A>>4)-(Rg>>4)-((K.B.l&0x10)>>4); \
-    if(K.B.h&0x10) K.B.h-=6; \
-    R->A=(K.B.l&0x0F)|(K.B.h<<4); \
-    R->P=(R->P&~C_FLAG)|(K.B.h>15? 0:C_FLAG); \
-  } \
-  else \
-  { \
-    K.W=R->A-Rg-(~R->P&C_FLAG); \
-    R->P&=~(N_FLAG|V_FLAG|Z_FLAG|C_FLAG); \
-    R->P|=((R->A^Rg)&(R->A^K.B.l)&0x80? V_FLAG:0)| \
-          (K.B.h? 0:C_FLAG)|ZNTable[K.B.l]; \
-    R->A=K.B.l; \
-  }
-
-#endif /* NO_DECIMAL */
+#define M_SBC(Rg) SBCInstruction(R, Rg)
 
 
 #define M_CMP(Rg1,Rg2) \
@@ -197,6 +177,55 @@
 #define M_ROR(Rg)       K.B.l=(Rg>>1)|(R->P<<7); \
                         R->P&=~C_FLAG;R->P|=Rg&C_FLAG;Rg=K.B.l; \
                         M_FL(Rg)
+
+/* The following code was provided by Mr. Scott Hemphill. Thanks a lot again! */
+static void SBCInstruction(M6502 *R, register unsigned char val) {
+    register unsigned int w;
+    register unsigned int temp;
+
+    if ((R->A ^ val) & 0x80) {
+        R->P |= V_FLAG;
+    }
+    else {
+        R->P &= ~V_FLAG;
+    }
+
+    if (R->P&D_FLAG) {            /* decimal subtraction */
+        temp = 0xf + (R->A & 0xf) - (val & 0xf) + (R->P & C_FLAG);
+        if (temp < 0x10) {
+            w = 0;
+            temp -= 6;
+        }
+        else {
+            w = 0x10;
+            temp -= 0x10;
+        }
+        w += 0xf0 + (R->A & 0xf0) - (val & 0xf0);
+        if (w < 0x100) {
+            R->P &= ~C_FLAG;
+            if ((R->P&V_FLAG) && w < 0x80) R->P &= ~V_FLAG;
+            w -= 0x60;
+        }
+        else {
+            R->P |= C_FLAG;
+            if ((R->P&V_FLAG) && w >= 0x180) R->P &= ~V_FLAG;
+        }
+        w += temp;
+    }
+    else {                        /* standard binary subtraction */
+        w = 0xff + R->A - val + (R->P&C_FLAG);
+        if (w < 0x100) {
+            R->P &= ~C_FLAG;
+            if ((R->P & V_FLAG) && w < 0x80) R->P &= ~V_FLAG;
+        }
+        else {
+            R->P |= C_FLAG;
+            if ((R->P&V_FLAG) && w >= 0x180) R->P &= ~V_FLAG;
+        }
+    }
+    R->A = (unsigned char)w;
+    R->P = (R->P & ~(Z_FLAG | N_FLAG)) | (R->A >= 0x80 ? N_FLAG : 0) | (R->A == 0 ? Z_FLAG : 0);
+} /* SBCinstruction */
 
 /** Reset6502() **********************************************/
 /** This function can be used to reset the registers before **/
