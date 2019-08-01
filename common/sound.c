@@ -322,6 +322,9 @@ void sound_save_state(FILE *fp)
 void sound_load_state(FILE *fp)
 {
     int i;
+
+    sound_reset();
+
     for (i = 0; i < 2; i++) {
         fread(m_channel[i].reg, sizeof(m_channel[i].reg), 1, fp);
 #define X(type, member) READ_##type(m_channel[i].member, fp);
